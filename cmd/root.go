@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,14 +18,6 @@ var rootCmd = &cobra.Command{
 	Use:   "qcli",
 	Short: "Quantum CLI - Local AI Assistant using Ollama supercharged with thinking",
 	Long:  `TODO`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) < 1 {
-			fmt.Println("Please provide a message to send to Ollama.")
-			return
-		}
-		initialUserChatMessage := strings.Join(args, " ")
-		fmt.Println("Initial user chat message:", initialUserChatMessage)
-	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -62,17 +53,17 @@ func initConfig() {
 		viper.SetConfigName(".quantum_cli")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	// Add this to read .env file from the current directory
+	viper.SetConfigType("env")
+	viper.AddConfigPath(".")
+	viper.SetConfigName(".env")
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("QCLI")
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	// Additionally read in .env file
+	if err := viper.MergeInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Fprintln(os.Stderr, "Error reading .env file:", err)
+		}
 	}
-}
-
-// chatWithOllama is a placeholder for your function that interacts with Ollama
-func chatWithOllama(message string) (string, error) {
-	// Implement your communication with Ollama here
-	// For example, send an HTTP request and return the response
-	return "Hello from Ollama!", nil
 }
