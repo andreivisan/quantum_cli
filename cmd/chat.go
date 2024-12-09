@@ -23,8 +23,9 @@ var chatCmd = &cobra.Command{
 		ollamaModel := viper.GetString("OLLAMA_MODEL")
 		fmt.Printf("Connecting to Ollama at %s using model %s\n", ollamaUrl, ollamaModel)
 		userInputChan := make(chan string)
+		defer close(userInputChan)
 		ollamaOutputChan := make(chan string)
-
+		defer close(ollamaOutputChan)
 		p := tea.NewProgram(chat.New(userInputChan, ollamaOutputChan),
 			tea.WithAltScreen(),       // use alternate screen buffer
 			tea.WithMouseCellMotion(), // enable mouse support
@@ -33,6 +34,7 @@ var chatCmd = &cobra.Command{
 		go func() {
 			for userInput := range userInputChan {
 				ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
+				fmt.Println("Sending message to Ollama:", userInput)
 				ollamaResponse, err := ollamaClient.Chat(userInput, 1000)
 				if err != nil {
 					fmt.Println("Error chatting with Ollama:", err)
@@ -46,7 +48,6 @@ var chatCmd = &cobra.Command{
 			fmt.Println("Error running program:", err)
 			return
 		}
-		close(ollamaOutputChan)
 	},
 }
 

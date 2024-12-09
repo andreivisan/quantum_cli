@@ -132,6 +132,7 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		line := string(msg)
 		model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+line)
 		model.viewport.SetContent(strings.Join(model.messages, "\n"))
+		model.textarea.Reset()
 		model.viewport.GotoBottom()
 	}
 	model.viewport, viewportCmd = model.viewport.Update(msg)
