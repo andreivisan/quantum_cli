@@ -53,7 +53,6 @@ func (c *Client) Chat(message string, maxTokens int) (string, error) {
 		return "", fmt.Errorf("error marshalling request: %w", err)
 	}
 	ollamaResponse, err := http.Post(url, "application/json", bytes.NewBuffer(jsonRequest))
-	fmt.Println(ollamaResponse)
 	if err != nil {
 		return "", fmt.Errorf("error sending request: %w", err)
 	}

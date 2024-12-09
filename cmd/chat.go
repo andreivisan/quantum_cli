@@ -34,8 +34,7 @@ var chatCmd = &cobra.Command{
 		go func() {
 			for userInput := range userInputChan {
 				ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
-				fmt.Println("Sending message to Ollama:", userInput)
-				ollamaResponse, err := ollamaClient.Chat(userInput, 1000)
+				ollamaResponse, err := ollamaClient.Chat(userInput, 300)
 				if err != nil {
 					fmt.Println("Error chatting with Ollama:", err)
 					continue
