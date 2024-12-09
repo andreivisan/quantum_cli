@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/andreivisan/quantum_cli/pkg/chat"
+	"github.com/andreivisan/quantum_cli/pkg/llama"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -21,16 +22,31 @@ var chatCmd = &cobra.Command{
 		ollamaUrl := viper.GetString("OLLAMA_URL")
 		ollamaModel := viper.GetString("OLLAMA_MODEL")
 		fmt.Printf("Connecting to Ollama at %s using model %s\n", ollamaUrl, ollamaModel)
+		userInputChan := make(chan string)
+		ollamaOutputChan := make(chan string)
 
-		p := tea.NewProgram(chat.New(),
+		p := tea.NewProgram(chat.New(userInputChan, ollamaOutputChan),
 			tea.WithAltScreen(),       // use alternate screen buffer
 			tea.WithMouseCellMotion(), // enable mouse support
 		)
+
+		go func() {
+			for userInput := range userInputChan {
+				ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
+				ollamaResponse, err := ollamaClient.Chat(userInput, 1000)
+				if err != nil {
+					fmt.Println("Error chatting with Ollama:", err)
+					continue
+				}
+				ollamaOutputChan <- ollamaResponse
+			}
+		}()
 
 		if _, err := p.Run(); err != nil {
 			fmt.Println("Error running program:", err)
 			return
 		}
+		close(ollamaOutputChan)
 	},
 }
 

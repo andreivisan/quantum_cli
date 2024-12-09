@@ -11,6 +11,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type OutputMsg string
+
 type Styles struct {
 	BorderColor lipgloss.Color
 	InputStyle  lipgloss.Style
@@ -30,17 +32,19 @@ func DefaultStyles() *Styles {
 }
 
 type model struct {
-	ready    bool
-	viewport viewport.Model
-	messages []string
-	textarea textarea.Model
-	width    int
-	height   int
-	err      error
-	styles   *Styles
+	ready            bool
+	viewport         viewport.Model
+	messages         []string
+	textarea         textarea.Model
+	width            int
+	height           int
+	err              error
+	styles           *Styles
+	userInputChan    chan<- string
+	ollamaOutputChan <-chan string
 }
 
-func New() *model {
+func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 	textarea := textarea.New()
 	textarea.Placeholder = "Send a message..."
 	textarea.Focus()
@@ -52,19 +56,31 @@ func New() *model {
 	textarea.KeyMap.InsertNewline.SetEnabled(false)
 	styles := DefaultStyles()
 	return &model{
-		ready:    true,
-		viewport: viewport,
-		messages: []string{},
-		textarea: textarea,
-		width:    0,
-		height:   0,
-		err:      nil,
-		styles:   styles,
+		ready:            true,
+		viewport:         viewport,
+		messages:         []string{},
+		textarea:         textarea,
+		width:            0,
+		height:           0,
+		err:              nil,
+		styles:           styles,
+		userInputChan:    userInputChan,
+		ollamaOutputChan: ollamaOutputChan,
 	}
 }
 
-func (m model) Init() tea.Cmd {
-	return textarea.Blink
+func (model model) Init() tea.Cmd {
+	return tea.Batch(textarea.Blink, listenForOllamaOutput(model.ollamaOutputChan))
+}
+
+func listenForOllamaOutput(outputChannel <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		llamaMessage, ok := <-outputChannel
+		if !ok {
+			return nil
+		}
+		return OutputMsg(llamaMessage)
+	}
 }
 
 func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -97,12 +113,9 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			userInput := model.textarea.Value()
 			if userInput == "" {
-				// Don't send empty messages.
 				return model, nil
 			}
-			// Simulate sending a message. In your application you'll want to
-			// also return a custom command to send the message off to
-			// a server.
+			model.userInputChan <- userInput
 			model.messages = append(model.messages, model.styles.PromptStyle.Render("You: ")+userInput)
 			model.viewport.SetContent(strings.Join(model.messages, "\n"))
 			model.textarea.Reset()
@@ -115,6 +128,11 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cursor.BlinkMsg:
 		// Forward cursor blink messages to the textarea as well.
 		model.textarea, textareaCmd = model.textarea.Update(msg)
+	case OutputMsg:
+		line := string(msg)
+		model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+line)
+		model.viewport.SetContent(strings.Join(model.messages, "\n"))
+		model.viewport.GotoBottom()
 	}
 	model.viewport, viewportCmd = model.viewport.Update(msg)
 	return model, tea.Batch(textareaCmd, viewportCmd)
