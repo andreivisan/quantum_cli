@@ -14,6 +14,7 @@ import (
 type Styles struct {
 	BorderColor lipgloss.Color
 	InputStyle  lipgloss.Style
+	PromptStyle lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
@@ -23,6 +24,8 @@ func DefaultStyles() *Styles {
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.BorderColor).
 		Padding(1)
+	styles.PromptStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("99"))
 	return styles
 }
 
@@ -100,9 +103,10 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Simulate sending a message. In your application you'll want to
 			// also return a custom command to send the message off to
 			// a server.
-			model.messages = append(model.messages, userInput)
+			model.messages = append(model.messages, model.styles.PromptStyle.Render("You: ")+userInput)
 			model.viewport.SetContent(strings.Join(model.messages, "\n"))
 			model.textarea.Reset()
+			model.viewport.GotoBottom()
 		default:
 			model.textarea, textareaCmd = model.textarea.Update(msg)
 		}
