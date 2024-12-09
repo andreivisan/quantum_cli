@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,92 +27,104 @@ func DefaultStyles() *Styles {
 }
 
 type model struct {
+	ready    bool
 	viewport viewport.Model
 	messages []string
 	textarea textarea.Model
-	err      error
 	width    int
 	height   int
+	err      error
 	styles   *Styles
 }
 
 func New() *model {
+	textarea := textarea.New()
+	textarea.Placeholder = "Send a message..."
+	textarea.Focus()
+	textarea.CharLimit = 280
+	// Remove cursor line styling
+	textarea.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	viewport := viewport.New(0, 0)
+	viewport.SetContent(`Type a message and press Enter to send.`)
+	textarea.KeyMap.InsertNewline.SetEnabled(false)
 	styles := DefaultStyles()
-	// Initialize the chat's text area
-	textArea := textarea.New()
-	textArea.Placeholder = "Ask a question..."
-	textArea.Focus()
-	textArea.ShowLineNumbers = false
-	// Customize key mappings
-	textArea.KeyMap.InsertNewline.SetEnabled(false)
-	textArea.KeyMap.InsertNewline.SetKeys("ctrl+enter", "cmd+enter")
-	welcomeMessage := "Welcome to Quantum CLI Chat! Type a message and press Enter to send."
-	viewport := viewport.New(80, 18)
-	viewport.SetContent(welcomeMessage)
-	viewport.YPosition = 0
 	return &model{
+		ready:    true,
 		viewport: viewport,
-		messages: []string{welcomeMessage},
-		textarea: textArea,
-		styles:   styles,
+		messages: []string{},
+		textarea: textarea,
+		width:    0,
+		height:   0,
 		err:      nil,
-		width:    80, // Default width
-		height:   24, // Default height
+		styles:   styles,
 	}
 }
 
-func (m *model) Init() tea.Cmd {
-	return nil
+func (m model) Init() tea.Cmd {
+	return textarea.Blink
 }
 
 func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		// Commands for textarea updates
 		textareaCmd tea.Cmd
-		// Commands for viewport updates
 		viewportCmd tea.Cmd
 	)
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		if !model.ready {
+			model.viewport = viewport.New(msg.Width, msg.Height)
+			model.viewport.HighPerformanceRendering = false
+			model.viewport.SetContent(`Type a message and press Enter to send.`)
+			model.ready = true
+		} else {
+			model.width = msg.Width
+			model.height = msg.Height
+			textareaHeight := 10
+			model.viewport.Width = model.width
+			model.viewport.Height = model.height - textareaHeight
+			model.textarea.SetWidth(model.width - 4)
+			model.styles.InputStyle = model.styles.InputStyle.Width(model.width - 2)
+		}
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		switch msg.String() {
+		case "esc", "ctrl+c":
+			// Quit.
+			fmt.Println(model.textarea.Value())
 			return model, tea.Quit
-		case tea.KeyEnter:
-			// Capture the submitted text
-			str := strings.TrimSpace(model.textarea.Value())
-			if str != "" {
-				userMessage := fmt.Sprintf("You: %s", str)
-				model.messages = append(model.messages, userMessage)
-				model.viewport.SetContent(strings.Join(model.messages, "\n"))
-				model.textarea.Reset()
-				model.viewport.GotoBottom()
+		case "enter":
+			userInput := model.textarea.Value()
+			if userInput == "" {
+				// Don't send empty messages.
+				return model, nil
 			}
+			// Simulate sending a message. In your application you'll want to
+			// also return a custom command to send the message off to
+			// a server.
+			model.messages = append(model.messages, userInput)
+			model.viewport.SetContent(strings.Join(model.messages, "\n"))
+			model.textarea.Reset()
+		default:
+			model.textarea, textareaCmd = model.textarea.Update(msg)
 		}
 	case error:
 		model.err = msg
-	case tea.WindowSizeMsg:
-		model.height = msg.Height
-		model.width = msg.Width
-		model.viewport.Width = msg.Width
-		model.viewport.Height = msg.Height - 6 // Leave space for textarea
-		model.styles.InputStyle = model.styles.InputStyle.Width(msg.Width - 2)
-		model.viewport.SetContent(strings.Join(model.messages, "\n"))
+	case cursor.BlinkMsg:
+		// Forward cursor blink messages to the textarea as well.
+		model.textarea, textareaCmd = model.textarea.Update(msg)
 	}
-
-	model.textarea, textareaCmd = model.textarea.Update(msg)
 	model.viewport, viewportCmd = model.viewport.Update(msg)
-
 	return model, tea.Batch(textareaCmd, viewportCmd)
 }
 
 func (model *model) View() string {
-	return lipgloss.Place(
+	if !model.ready {
+		return "\n Initializing..."
+	}
+	return lipgloss.PlaceHorizontal(
 		model.width,
-		model.height,
-		lipgloss.Center,
 		lipgloss.Center,
 		lipgloss.JoinVertical(
-			lipgloss.Center,
+			lipgloss.Left,
 			model.viewport.View(),
 			model.styles.InputStyle.Render(model.textarea.View()),
 		),
