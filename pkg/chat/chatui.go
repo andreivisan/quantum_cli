@@ -129,9 +129,13 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Forward cursor blink messages to the textarea as well.
 		model.textarea, textareaCmd = model.textarea.Update(msg)
 	case OutputMsg:
-		line := string(msg)
-		model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+line)
-		model.viewport.SetContent(strings.Join(model.messages, "\n"))
+		chunk := string(msg)
+		if len(model.messages) == 0 {
+			model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+chunk)
+		} else {
+			model.messages[len(model.messages)-1] = model.messages[len(model.messages)-1] + " " + chunk
+		}
+		model.viewport.SetContent(strings.Join(model.messages, " "))
 		model.textarea.Reset()
 		model.viewport.GotoBottom()
 		// Re-issue the listen command to wait for the next message
