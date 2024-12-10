@@ -134,6 +134,8 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.viewport.SetContent(strings.Join(model.messages, "\n"))
 		model.textarea.Reset()
 		model.viewport.GotoBottom()
+		// Re-issue the listen command to wait for the next message
+		return model, tea.Batch(textareaCmd, viewportCmd, listenForOllamaOutput(model.ollamaOutputChan))
 	}
 	model.viewport, viewportCmd = model.viewport.Update(msg)
 	return model, tea.Batch(textareaCmd, viewportCmd)

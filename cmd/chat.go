@@ -32,14 +32,13 @@ var chatCmd = &cobra.Command{
 		)
 
 		go func() {
+			ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
 			for userInput := range userInputChan {
-				ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
-				ollamaResponse, err := ollamaClient.Chat(userInput, 300)
+				err := ollamaClient.Chat(userInput, 300, ollamaOutputChan)
 				if err != nil {
 					fmt.Println("Error chatting with Ollama:", err)
 					continue
 				}
-				ollamaOutputChan <- ollamaResponse
 			}
 		}()
 
