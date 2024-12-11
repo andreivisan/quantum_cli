@@ -133,7 +133,7 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(model.messages) == 0 {
 			model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+chunk)
 		} else {
-			model.messages[len(model.messages)-1] = model.messages[len(model.messages)-1] + " " + chunk
+			model.messages[len(model.messages)-1] = model.messages[len(model.messages)-1] + "" + chunk
 		}
 		model.viewport.SetContent(strings.Join(model.messages, " "))
 		model.textarea.Reset()
