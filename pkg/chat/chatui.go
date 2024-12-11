@@ -13,6 +13,8 @@ import (
 
 type OutputMsg string
 
+type OutputDoneMsg struct{}
+
 type Styles struct {
 	BorderColor lipgloss.Color
 	InputStyle  lipgloss.Style
@@ -77,7 +79,7 @@ func listenForOllamaOutput(outputChannel <-chan string) tea.Cmd {
 	return func() tea.Msg {
 		llamaMessage, ok := <-outputChannel
 		if !ok {
-			return nil
+			return OutputMsg(llamaMessage)
 		}
 		return OutputMsg(llamaMessage)
 	}
@@ -133,13 +135,19 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(model.messages) == 0 {
 			model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+chunk)
 		} else {
-			model.messages[len(model.messages)-1] = model.messages[len(model.messages)-1] + "" + chunk
+			model.messages[len(model.messages)-1] += "" + chunk
 		}
-		model.viewport.SetContent(strings.Join(model.messages, " "))
-		model.textarea.Reset()
+		model.viewport.SetContent(strings.Join(model.messages, "\n"))
 		model.viewport.GotoBottom()
 		// Re-issue the listen command to wait for the next message
 		return model, tea.Batch(textareaCmd, viewportCmd, listenForOllamaOutput(model.ollamaOutputChan))
+	case OutputDoneMsg:
+		// Llama finished responding, add a new line
+		model.messages = append(model.messages, "")
+		model.viewport.SetContent(strings.Join(model.messages, "\n"))
+		model.viewport.GotoBottom()
+		// No need to re-listen here since response ended
+		return model, tea.Batch(textareaCmd, viewportCmd)
 	}
 	model.viewport, viewportCmd = model.viewport.Update(msg)
 	return model, tea.Batch(textareaCmd, viewportCmd)
