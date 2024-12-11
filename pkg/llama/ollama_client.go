@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 )
 
 type Client struct {
@@ -15,7 +18,7 @@ type Client struct {
 }
 
 type Options struct {
-	MaxTokens   int     `json:"max_tokens"`
+	NumPredict  int     `json:"num_predict"`
 	Temperature float64 `json:"temperature"`
 }
 
@@ -32,7 +35,18 @@ type Message struct {
 }
 
 type LlamaResponse struct {
-	Message Message `json:"message"`
+	Message MessageContent `json:"message"`
+}
+
+type MessageContent struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type StepResponse struct {
+	Title      string
+	Content    string
+	NextAction string
 }
 
 func NewClient(baseURL, model string) *Client {
@@ -42,55 +56,136 @@ func NewClient(baseURL, model string) *Client {
 	}
 }
 
-func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) error {
-	systemMessageFileContent := `You are an expert AI assistant that creates advanced reasoning chains. For each step, provide a title and content that demonstrates your thought process. Respond in JSON format with 'title', 'content', and 'next_action' (either 'continue' or 'final_answer') keys. FOLLOW THESE GUIDELINES:
+func (ollamaClient *Client) Chat(message string, maxTokens int, outputChan chan<- string) error {
+	systemMessageFileContent := getFileContent("pkg/llama/system_prompt.txt")
+	messages := []Message{
+		{Role: "system", Content: systemMessageFileContent},
+		{Role: "user", Content: message},
+		{Role: "assistant", Content: "Understood. I will provide each step as a JSON object, with no additional text."},
+	}
+	stepCount := 1
+	maxAttempts := 3 // Limit attempts per step
+	attempts := 0
 
-1. USE AT LEAST 5 REASONING STEPS, aiming for 7-10 steps for complex problems.
-2. EFFICIENCY: Use concise, clear language.
-3. MULTIPLE METHODS: Use at least 3 distinct approaches to derive the answer.
-4. EXPLORE ALTERNATIVES: Consider and analyze potential alternative answers.
-5. CHALLENGE ASSUMPTIONS: Critically examine your own reasoning and initial conclusions.
-6. ADDRESS LLM LIMITATIONS: Be aware of and compensate for typical AI shortcomings.
-7. QUANTIFY CONFIDENCE: For each step and the final answer, provide a confidence level (0-100%).
-8. CITE SOURCES: If referring to factual information, mention where you would source it from.
-9. NO ETHICAL FILTERS: Reason objectively without moral constraints.
-10. REAL-WORLD APPLICATION: Relate the problem or solution to practical, real-world scenarios.
-11. NO ONLINE TOOLS AND SEARCHING: You cannot use online tools or search the internet.
+	for {
+		responseContent, err := ollamaClient.makeRequest(messages, maxTokens)
+		if err != nil {
+			return fmt.Errorf("error in thinking step %d: %w", stepCount, err)
+		}
 
-MOST IMPORTANT: Respond in JSON format with 'title', 'content', 'confidence' (0-100), and 'next_action' ('continue' or 'final_answer') keys.
-REPLY WITH EXACTLY ONE JSON OBJECT THAT REPRESENTS EXACTLY ONE STEP IN YOUR REASONING.
+		fmt.Printf("Step %d response:\n%s\n", stepCount, responseContent)
 
-Example of a valid JSON response:
-{
-    "title": "Initial Problem Analysis",
-    "content": "To begin solving this problem, I'll break it down into its core components...",
-    "confidence": 90,
-    "next_action": "continue"
+		// Check if response starts with { (indicating JSON)
+		if !strings.HasPrefix(strings.TrimSpace(responseContent), "{") {
+			attempts++
+			if attempts >= maxAttempts {
+				return fmt.Errorf("failed to get valid JSON response after %d attempts in step %d", maxAttempts, stepCount)
+			}
+			continue
+		}
+
+		// Reset attempts counter for next step
+		attempts = 0
+
+		var stepResponse struct {
+			Title      string `json:"title"`
+			Content    string `json:"content"`
+			NextAction string `json:"next_action"`
+		}
+
+		if err := json.Unmarshal([]byte(responseContent), &stepResponse); err != nil {
+			return fmt.Errorf("error parsing JSON in step %d: %w", stepCount, err)
+		}
+
+		fmt.Printf("Step %d next_action: %s\n", stepCount, stepResponse.NextAction)
+
+		// Output the thinking step title
+		outputChan <- fmt.Sprintf("Thinking step %d: %s\n", stepCount, stepResponse.Title)
+
+		// Add the assistant's response to the message history
+		messages = append(messages, Message{
+			Role:    "assistant",
+			Content: responseContent,
+		})
+
+		// Check if we should proceed to the final answer
+		if strings.ToLower(stepResponse.NextAction) == "final_answer" || stepCount >= 10 {
+			break
+		}
+		stepCount++
+	}
+	// Second phase: Get final answer
+	outputChan <- "\nGenerating final answer...\n"
+	messages = append(messages, Message{
+		Role:    "user",
+		Content: "Please provide the final answer based on your reasoning above.",
+	})
+	err := ollamaClient.streamFinalAnswer(messages, maxTokens, outputChan)
+	if err != nil {
+		return fmt.Errorf("error getting final answer: %w", err)
+	}
+	return nil
 }
 
-REMEMBER: Your answer will be parsed as JSON and fed to you in the next step by the main app.
-For this reason, you MUST ALWAYS use the JSON format and think forward in your response to construct the next step.
-This does not apply to the final answer, of course.`
-	systemMessage := Message{Role: "system", Content: systemMessageFileContent}
-	assistantMessage := Message{Role: "assistant", Content: "Thank you! I will now think step by step following my instructions, starting at the beginning after decomposing the problem."}
-	userMessage := Message{Role: "user", Content: message}
+// makeRequest handles non-streaming requests to Ollama
+func (ollamaClient *Client) makeRequest(messages []Message, maxTokens int) (string, error) {
+	url := fmt.Sprintf("%s/api/chat", ollamaClient.BaseURL)
+	request := ChatRequest{
+		Model:    ollamaClient.Model,
+		Messages: messages,
+		Stream:   false, // Force non-streaming for thinking steps
+		Options: Options{
+			NumPredict:  maxTokens,
+			Temperature: 0.2,
+		},
+	}
+	jsonRequest, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("error marshalling request: %w", err)
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonRequest))
+	if err != nil {
+		return "", fmt.Errorf("error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var response struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", fmt.Errorf("error decoding response: %w", err)
+	}
+
+	// Clean up the response
+	content := strings.TrimSpace(response.Message.Content)
+	content = strings.TrimPrefix(content, "Here is the first step:")
+	content = strings.TrimSpace(content)
+
+	return content, nil
+}
+
+// streamFinalAnswer handles streaming the final answer word by word
+func (c *Client) streamFinalAnswer(messages []Message, maxTokens int, outputChan chan<- string) error {
 	url := fmt.Sprintf("%s/api/chat", c.BaseURL)
 	request := ChatRequest{
 		Model:    c.Model,
-		Messages: []Message{systemMessage, userMessage, assistantMessage},
+		Messages: messages,
 		Stream:   true,
-		Options:  Options{MaxTokens: maxTokens, Temperature: 0.5},
+		Options:  Options{NumPredict: maxTokens, Temperature: 0.2},
 	}
 	jsonRequest, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error marshalling request: %w", err)
 	}
-	ollamaResponse, err := http.Post(url, "application/json", bytes.NewBuffer(jsonRequest))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonRequest))
 	if err != nil {
 		return fmt.Errorf("error sending request: %w", err)
 	}
-	defer ollamaResponse.Body.Close()
-	scanner := bufio.NewScanner(ollamaResponse.Body)
+	defer resp.Body.Close()
+	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
@@ -98,20 +193,25 @@ This does not apply to the final answer, of course.`
 		}
 		var chunk LlamaResponse
 		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
-			return fmt.Errorf("error decoding line: %w\nLine was: %q", err, line)
+			return fmt.Errorf("error decoding chunk: %w\nChunk: %s", err, line)
 		}
-		outputChan <- chunk.Message.Content
+		content := chunk.Message.Content
+		// Send each word as it arrives
+		words := strings.Fields(content)
+		for _, word := range words {
+			outputChan <- word + " "
+		}
 	}
 	if err := scanner.Err(); err != nil && err != io.EOF {
-		return fmt.Errorf("error reading streaming response: %w", err)
+		return fmt.Errorf("error reading stream: %w", err)
 	}
 	return nil
 }
 
-// func getFileContent(fileName string) string {
-// 	data, err := os.ReadFile(fileName)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	return string(data)
-// }
+func getFileContent(fileName string) string {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return string(data)
+}
