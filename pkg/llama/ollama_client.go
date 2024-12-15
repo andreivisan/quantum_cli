@@ -25,11 +25,9 @@ func NewClient(baseURL, model string) *Client {
 	}
 }
 
-func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) error {
-	// Add two newlines before starting the response
+func (cli *Client) Chat(message string, maxTokens int, outputChan chan<- string) error {
 	outputChan <- "\n\n"
 
-	// Prepare the request to FastAPI
 	url := "http://localhost:8000/chat/stream"
 	request := ChatRequest{
 		Message: message,
@@ -40,16 +38,13 @@ func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) e
 		return fmt.Errorf("error marshalling request: %w", err)
 	}
 
-	// Create a new request
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonRequest))
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 
-	// Make the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -57,10 +52,12 @@ func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) e
 	}
 	defer resp.Body.Close()
 
-	// Read the streaming response word by word
 	reader := bufio.NewReader(resp.Body)
 	buffer := make([]byte, 1)
 	word := ""
+	isThinking := false
+
+	outputChan <- "Thinking...\n"
 
 	for {
 		n, err := reader.Read(buffer)
@@ -74,10 +71,28 @@ func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) e
 		if n > 0 {
 			char := string(buffer[0])
 			word += char
+
+			// Check for section changes (words ending with ":")
+			if char == ":" {
+				if word == "THINKING:" {
+					isThinking = true
+					word = ""
+					continue
+				} else if len(word) > 0 && word[0] >= 'A' && word[0] <= 'Z' {
+					// Any other section header
+					isThinking = false
+					outputChan <- "\n" + word + "\n"
+					word = ""
+					continue
+				}
+			}
+
 			// Send word when we hit a space or newline
 			if char == " " || char == "\n" {
 				if word != "" {
-					outputChan <- word
+					if !isThinking {
+						outputChan <- word
+					}
 					word = ""
 				}
 			}
@@ -85,7 +100,7 @@ func (c *Client) Chat(message string, maxTokens int, outputChan chan<- string) e
 	}
 
 	// Send any remaining word
-	if word != "" {
+	if word != "" && !isThinking {
 		outputChan <- word
 	}
 
