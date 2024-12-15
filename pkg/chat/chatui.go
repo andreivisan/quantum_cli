@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 type OutputMsg string
@@ -47,16 +48,22 @@ type model struct {
 }
 
 func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
+	zone.NewGlobal()
+
 	textarea := textarea.New()
 	textarea.Placeholder = "Send a message..."
 	textarea.Focus()
 	textarea.CharLimit = 280
-	// Remove cursor line styling
 	textarea.FocusedStyle.CursorLine = lipgloss.NewStyle()
+
 	viewport := viewport.New(0, 0)
 	viewport.SetContent(`Type a message and press Enter to send.`)
+	viewport.MouseWheelEnabled = true
+	viewport.YPosition = 0
+
 	textarea.KeyMap.InsertNewline.SetEnabled(false)
 	styles := DefaultStyles()
+
 	return &model{
 		ready:            true,
 		viewport:         viewport,
@@ -157,12 +164,15 @@ func (model *model) View() string {
 	if !model.ready {
 		return "\n Initializing..."
 	}
+
+	viewportContent := zone.Mark("viewport", model.viewport.View())
+
 	return lipgloss.PlaceHorizontal(
 		model.width,
 		lipgloss.Center,
 		lipgloss.JoinVertical(
 			lipgloss.Left,
-			model.viewport.View(),
+			viewportContent,
 			model.styles.InputStyle.Render(model.textarea.View()),
 		),
 	)

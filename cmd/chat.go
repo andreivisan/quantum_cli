@@ -26,9 +26,12 @@ var chatCmd = &cobra.Command{
 		defer close(userInputChan)
 		ollamaOutputChan := make(chan string)
 		defer close(ollamaOutputChan)
-		p := tea.NewProgram(chat.New(userInputChan, ollamaOutputChan),
-			tea.WithAltScreen(),       // use alternate screen buffer
-			tea.WithMouseCellMotion(), // enable mouse support
+
+		p := tea.NewProgram(
+			chat.New(userInputChan, ollamaOutputChan),
+			tea.WithAltScreen(),
+			tea.WithMouseCellMotion(),
+			tea.WithMouseAllMotion(),
 		)
 
 		go func() {
