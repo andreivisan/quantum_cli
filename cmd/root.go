@@ -44,8 +44,13 @@ Configure your experience using environment variables or config files:
 				os.Exit(1)
 			}
 
-			if finalModel, ok := finalModel.(menu.Model); ok && finalModel.Choice() == "chat" {
-				chatCmd.Run(cmd, args)
+			if menuModel, ok := finalModel.(menu.Model); ok {
+				if menuModel.Quitting() {
+					os.Exit(0)
+				}
+				if menuModel.Choice() == "chat" {
+					chatCmd.Run(cmd, args)
+				}
 			}
 		}
 	},

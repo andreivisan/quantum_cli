@@ -36,10 +36,11 @@ Configure your experience using environment variables or config files:
 )
 
 type Model struct {
-	list   list.Model
-	choice string
-	width  int
-	height int
+	list     list.Model
+	choice   string
+	quitting bool
+	width    int
+	height   int
 }
 
 type item struct {
@@ -133,4 +134,8 @@ func (menuModel Model) View() string {
 
 func (menuModel Model) Choice() string {
 	return menuModel.choice
+}
+
+func (menuModel Model) Quitting() bool {
+	return menuModel.quitting
 }
