@@ -30,8 +30,6 @@ var chatCmd = &cobra.Command{
 		p := tea.NewProgram(
 			chat.New(userInputChan, ollamaOutputChan),
 			tea.WithAltScreen(),
-			tea.WithMouseCellMotion(),
-			tea.WithMouseAllMotion(),
 		)
 
 		go func() {
