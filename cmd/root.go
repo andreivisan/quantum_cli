@@ -17,7 +17,18 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "qcli",
 	Short: "Quantum CLI - Local AI Assistant using Ollama supercharged with thinking",
-	Long:  `TODO`,
+	Long: `Quantum CLI (qcli) provides an interactive terminal interface for chatting with 
+a Chain of Thought Large Language Model powered by Ollama.
+
+This CLI tool allows you to:
+• Have natural conversations with a local LLM
+• Leverage Chain of Thought prompting for more reasoned responses
+• Use different Ollama models through configuration
+• Enjoy a clean, terminal-based UI for your AI interactions
+
+Configure your experience using environment variables or config files:
+- OLLAMA_URL: URL of your Ollama instance
+- OLLAMA_MODEL: The model you want to use (e.g., llama2, mistral)`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
