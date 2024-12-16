@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/andreivisan/quantum_cli/pkg/menu"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -29,6 +31,24 @@ This CLI tool allows you to:
 Configure your experience using environment variables or config files:
 - OLLAMA_URL: URL of your Ollama instance
 - OLLAMA_MODEL: The model you want to use (e.g., llama2, mistral)`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			p := tea.NewProgram(
+				menu.New(),
+				tea.WithAltScreen(),
+			)
+
+			finalModel, err := p.Run()
+			if err != nil {
+				fmt.Println("Error running program:", err)
+				os.Exit(1)
+			}
+
+			if _, ok := finalModel.(menu.Model); ok { //} && finalModel.Choice() == "chat" {
+				chatCmd.Run(cmd, args)
+			}
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -44,8 +64,6 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.quantum_cli.yaml)")
-
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
