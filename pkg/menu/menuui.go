@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -36,6 +37,7 @@ Configure your experience using environment variables or config files:
 
 type Model struct {
 	list   list.Model
+	choice string
 	width  int
 	height int
 }
@@ -93,9 +95,15 @@ func (menuModel Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc", "q":
+		switch {
+		case key.Matches(msg, key.NewBinding(key.WithKeys("q", "ctrl+c", "esc"))):
 			return menuModel, tea.Quit
+		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
+			selectedItem, ok := menuModel.list.SelectedItem().(item)
+			if ok {
+				menuModel.choice = selectedItem.title
+				return menuModel, tea.Quit
+			}
 		}
 	}
 	var cmd tea.Cmd
@@ -121,4 +129,8 @@ func (menuModel Model) View() string {
 		lipgloss.Top,    // Vertical center
 		content,
 	)
+}
+
+func (menuModel Model) Choice() string {
+	return menuModel.choice
 }
