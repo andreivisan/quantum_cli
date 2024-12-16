@@ -31,7 +31,7 @@ Configure your experience using environment variables or config files:
 `
 	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("36")).Bold(true)
 	descriptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).MarginTop(1)
-	listStyle        = lipgloss.NewStyle().Margin(1, 2)
+	listStyle        = lipgloss.NewStyle().MarginTop(7)
 )
 
 type Model struct {
@@ -53,8 +53,18 @@ func New() *Model {
 		item{title: "chat", description: "chat with AI"},
 		item{title: "prettyJson", description: "pretty print JSON"},
 	}
+	delegate := list.NewDefaultDelegate()
+	cyberpunkYellow := lipgloss.Color("226")
+
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(cyberpunkYellow).
+		BorderLeftForeground(cyberpunkYellow).
+		Bold(true)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
+		Foreground(cyberpunkYellow).
+		BorderLeftForeground(cyberpunkYellow)
 	menuModel := &Model{
-		list: list.New(items, list.NewDefaultDelegate(), 0, 0),
+		list: list.New(items, delegate, 0, 0),
 	}
 	menuModel.list.SetShowTitle(false)
 	menuModel.list.SetShowStatusBar(false)
