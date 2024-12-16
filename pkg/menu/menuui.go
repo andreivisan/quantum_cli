@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -10,25 +11,57 @@ var (
    ____                   _                    ____ _     ___ 
   / __ \                 | |                  / ___| |   |_ _|
  | |  | |_   _  __ _ _ __| |_ _   _ _ __ ___ | |   | |    | | 
- | |  | | | | |/ _' | '__| __| | | | '_ ' _ \| |___| |___ | | 
- | |__| | |_| | (_| | |  | |_| |_| | | | | | |\____|_____|___|
-  \___\_\\__,_|\__,_|_|   \__|\__,_|_| |_| |_|                
+ | |  | | | | |/ _' | '__| __| | | | '_ ' _ \| |   | |    | | 
+ | |__| | |_| | (_| | |  | |_| |_| | | | | | | |___| |___ | | 
+  \___\_\\__,_|\__,_|_|   \__|\__,_|_| |_| |_|\____|_____|___|                
 
 `
-	titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("36")).Bold(true)
+	description = `Quantum CLI (qcli) provides an interactive terminal interface for chatting with 
+a Chain of Thought Large Language Model powered by Ollama.
+
+This CLI tool allows you to:
+• Have natural conversations with a local LLM
+• Leverage Chain of Thought prompting for more reasoned responses
+• Use different Ollama models through configuration
+• Enjoy a clean, terminal-based UI for your AI interactions
+
+Configure your experience using environment variables or config files:
+- OLLAMA_URL: URL of your Ollama instance
+- OLLAMA_MODEL: The model you want to use (e.g., llama2, mistral)
+`
+	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("36")).Bold(true)
+	descriptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).MarginTop(1)
+	listStyle        = lipgloss.NewStyle().Margin(1, 2)
 )
 
 type Model struct {
+	list   list.Model
 	width  int
 	height int
 }
 
+type item struct {
+	title, description string
+}
+
+func (listItem item) Title() string       { return listItem.title }
+func (listItem item) Description() string { return listItem.description }
+func (listItem item) FilterValue() string { return listItem.title }
+
 func New() *Model {
-	return &Model{}
+	items := []list.Item{
+		item{title: "chat", description: "chat with AI"},
+		item{title: "prettyJson", description: "pretty print JSON"},
+	}
+	menuModel := &Model{
+		list: list.New(items, list.NewDefaultDelegate(), 0, 0),
+	}
+	menuModel.list.SetShowTitle(false)
+	menuModel.list.SetShowStatusBar(false)
+	return menuModel
 }
 
 func (menuModel Model) Init() tea.Cmd {
-	// No init command needed, just display ASCII art
 	return nil
 }
 
@@ -37,6 +70,17 @@ func (menuModel Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		menuModel.width, menuModel.height = msg.Width, msg.Height
+		headerContent := lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render(asciiArt),
+			descriptionStyle.Render(description),
+		)
+		headerContentHeight := lipgloss.Height(headerContent)
+		listHeight := menuModel.height - headerContentHeight
+		horizontalMargin, verticalMargin := listStyle.GetFrameSize()
+		menuModel.list.SetSize(
+			menuModel.width-horizontalMargin,
+			listHeight-verticalMargin,
+		)
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -44,17 +88,27 @@ func (menuModel Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return menuModel, tea.Quit
 		}
 	}
-	return menuModel, nil
+	var cmd tea.Cmd
+	menuModel.list, cmd = menuModel.list.Update(msg)
+	return menuModel, cmd
 }
 
 func (menuModel Model) View() string {
-	// We’ll place the ASCII art in the center of the screen
-	// both horizontally and vertically using lipgloss.Place.
+	header := lipgloss.JoinVertical(lipgloss.Left,
+		titleStyle.Render(asciiArt),
+		descriptionStyle.Render(description),
+	)
+	listView := listStyle.Render(menuModel.list.View())
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		header,
+		listView,
+	)
 	return lipgloss.Place(
 		menuModel.width,
 		menuModel.height,
 		lipgloss.Center, // Horizontal center
 		lipgloss.Top,    // Vertical center
-		titleStyle.Render(asciiArt),
+		content,
 	)
 }
