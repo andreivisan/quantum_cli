@@ -34,44 +34,51 @@ func DefaultStyles() *Styles {
 }
 
 type model struct {
-	ready            bool
 	viewport         viewport.Model
-	messages         []string
 	textarea         textarea.Model
-	width            int
-	height           int
-	err              error
-	styles           *Styles
 	userInputChan    chan<- string
 	ollamaOutputChan <-chan string
+	messages         []string
+	err              error
+	styles           *Styles
+	ready            bool
+	width            int
+	height           int
 }
 
 func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 	textarea := textarea.New()
 	textarea.Placeholder = "Send a message..."
 	textarea.Focus()
-	textarea.CharLimit = 280
-	textarea.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	textarea.CharLimit = 0
+	textarea.ShowLineNumbers = true
+	textarea.SetHeight(4)
+	textarea.MaxHeight = 100
+
+	// Configure Shift+Enter for new lines
+	newlineKey := textarea.KeyMap.InsertNewline
+	newlineKey.SetKeys("alt+enter")
+	textarea.KeyMap.InsertNewline.SetEnabled(true)
+	textarea.KeyMap.InsertNewline = newlineKey
 
 	viewport := viewport.New(0, 0)
 	viewport.SetContent(`Type a message and press Enter to send.`)
 	viewport.MouseWheelEnabled = false
 	viewport.YPosition = 0
 
-	textarea.KeyMap.InsertNewline.SetEnabled(false)
 	styles := DefaultStyles()
 
 	return &model{
-		ready:            true,
-		viewport:         viewport,
-		messages:         []string{},
 		textarea:         textarea,
-		width:            0,
-		height:           0,
-		err:              nil,
-		styles:           styles,
+		viewport:         viewport,
 		userInputChan:    userInputChan,
 		ollamaOutputChan: ollamaOutputChan,
+		messages:         []string{},
+		err:              nil,
+		styles:           styles,
+		ready:            true,
+		width:            0,
+		height:           0,
 	}
 }
 
