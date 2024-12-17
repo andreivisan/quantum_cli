@@ -24,6 +24,7 @@ type Styles struct {
 	BorderColor lipgloss.Color
 	InputStyle  lipgloss.Style
 	PromptStyle lipgloss.Style
+    ChatStyle   lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
@@ -32,13 +33,21 @@ func DefaultStyles() *Styles {
 	styles.InputStyle = lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("36")).
-		Padding(1).
         MarginTop(0).
         Height(6)
 	styles.PromptStyle = lipgloss.NewStyle().
         PaddingLeft(1).
         PaddingRight(1).
+        PaddingTop(0).
+        PaddingBottom(0).
 		Foreground(lipgloss.Color("99"))
+    styles.ChatStyle = lipgloss.NewStyle().
+         Height(2).
+         PaddingLeft(2).
+         PaddingTop(0).
+         PaddingBottom(0).
+         MarginTop(0).
+         MarginBottom(1)
 	return styles
 }
 
@@ -72,7 +81,7 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 
 	viewport := viewport.New(0, 0)
 	viewport.SetContent(`Type a message and press Enter to send.`)
-	viewport.MouseWheelEnabled = false
+	viewport.MouseWheelEnabled = true
 	viewport.YPosition = 0
 
 	styles := DefaultStyles()
@@ -123,11 +132,13 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
         model.width = msg.Width
         model.height = msg.Height
-        model.viewport.Width = msg.Width
-        model.viewport.Height = msg.Height - 10
-        model.textarea.SetWidth(msg.Width - 4)
+        // Calculate viewport height properly
+        viewportHeight := model.height - 10
+        model.viewport.Width = model.width
+        model.viewport.Height = viewportHeight
+        model.textarea.SetWidth(model.width - 4)
         model.textarea.SetHeight(4)
-        model.styles.InputStyle = model.styles.InputStyle.Width(model.width - 2)
+        //model.styles.InputStyle = model.styles.InputStyle.Width(model.width - 2)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "ctrl+c":
@@ -217,12 +228,9 @@ func (model *model) View() string {
 }
 
 func (chatModel *model) formatMessage(msg Message) string {
-    return fmt.Sprintf("\n%s\n%s\n",
+    return fmt.Sprintf("%s%s\n",
         chatModel.styles.PromptStyle.Render(msg.Role+":"),
-        chatModel.styles.InputStyle.Copy().
-            UnsetBorderStyle().
-            PaddingLeft(2).
-            Render(msg.Content))
+        chatModel.styles.ChatStyle.Render(msg.Content))
 }
 
 func (chatModel *model) rebuildViewport() {
