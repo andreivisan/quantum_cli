@@ -17,18 +17,15 @@ var (
   \___\_\\__,_|\__,_|_|   \__|\__,_|_| |_| |_|\____|_____|___|                
 
 `
-	description = `Quantum CLI (qcli) provides an interactive terminal interface for chatting with 
-a Chain of Thought Large Language Model powered by Ollama.
+	description = `Quantum CLI (qcli) is a developer's companion providing an interactive terminal interface 
+for various development tools, with AI capabilities powered by Ollama.
 
-This CLI tool allows you to:
-• Have natural conversations with a local LLM
-• Leverage Chain of Thought prompting for more reasoned responses
-• Use different Ollama models through configuration
-• Enjoy a clean, terminal-based UI for your AI interactions
+Currently available:
+• AI Chat with Chain of Thought reasoning for more detailed responses
 
-Configure your experience using environment variables or config files:
-- OLLAMA_URL: URL of your Ollama instance
-- OLLAMA_MODEL: The model you want to use (e.g., llama2, mistral)
+Coming soon:
+• OCR capabilities
+• Additional developer tools and AI features
 `
 	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("36")).Bold(true)
 	descriptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).MarginTop(1)
@@ -53,8 +50,8 @@ func (listItem item) FilterValue() string { return listItem.title }
 
 func New() *Model {
 	items := []list.Item{
-		item{title: "chat", description: "chat with AI"},
-		item{title: "prettyJson", description: "pretty print JSON"},
+		item{title: "AI chat", description: "chat with AI"},
+		item{title: "AI OCR", description: "COMING SOON: extract text from images"},
 	}
 	delegate := list.NewDefaultDelegate()
 	cyberpunkYellow := lipgloss.Color("226")

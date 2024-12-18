@@ -19,7 +19,7 @@ var chatCmd = &cobra.Command{
 	Long: `Start an interactive chat session with the AI assistant.
 
 The chat interface provides:
-• A clean terminal UI with message history
+• A clean terminal UI
 • Real-time streaming responses
 • Support for multi-line input
 • Clear separation between user and AI messages
