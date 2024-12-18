@@ -18,19 +18,13 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "qcli",
-	Short: "Quantum CLI - Local AI Assistant using Ollama supercharged with thinking",
+	Short: "Quantum CLI - AI Assistant",
 	Long: `Quantum CLI (qcli) provides an interactive terminal interface for chatting with 
-a Chain of Thought Large Language Model powered by Ollama.
+an AI assistant.
 
 This CLI tool allows you to:
-• Have natural conversations with a local LLM
-• Leverage Chain of Thought prompting for more reasoned responses
-• Use different Ollama models through configuration
-• Enjoy a clean, terminal-based UI for your AI interactions
-
-Configure your experience using environment variables or config files:
-- OLLAMA_URL: URL of your Ollama instance
-- OLLAMA_MODEL: The model you want to use (e.g., llama2, mistral)`,
+• Have natural conversations with an AI
+• Enjoy a clean, terminal-based UI for your AI interactions`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			p := tea.NewProgram(
@@ -56,8 +50,6 @@ Configure your experience using environment variables or config files:
 	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -67,37 +59,26 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.quantum_cli.yaml)")
 }
 
-// initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" {
-		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".quantum_cli" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".quantum_cli")
 	}
 
-	// Add this to read .env file from the current directory
-	viper.SetConfigType("env")
-	viper.AddConfigPath(".")
-	viper.SetConfigName(".env")
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("QCLI")
 
-	// Additionally read in .env file
 	if err := viper.MergeInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			fmt.Fprintln(os.Stderr, "Error reading .env file:", err)
+			fmt.Fprintln(os.Stderr, "Error reading config file:", err)
 		}
 	}
 }

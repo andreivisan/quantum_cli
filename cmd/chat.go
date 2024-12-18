@@ -6,58 +6,49 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/andreivisan/quantum_cli/pkg/ai"
 	"github.com/andreivisan/quantum_cli/pkg/chat"
-	"github.com/andreivisan/quantum_cli/pkg/llama"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // chatCmd represents the chat command
 var chatCmd = &cobra.Command{
 	Use:   "chat",
-	Short: "Chat with Ollama",
-	Long: `Start an interactive chat session with your configured Ollama model.
+	Short: "Start an AI chat session",
+	Long: `Start an interactive chat session with the AI assistant.
 
 The chat interface provides:
 • A clean terminal UI with message history
-• Real-time streaming responses from the model
-• Chain of Thought reasoning for more detailed answers
+• Real-time streaming responses
 • Support for multi-line input
 • Clear separation between user and AI messages
 
 Usage:
   qcli chat
 
-The chat session uses the following configuration:
-- OLLAMA_URL: The URL of your Ollama instance (default: http://localhost:11434)
-- OLLAMA_MODEL: The model to use for chat (e.g., llama2, mistral)
-
 Press Ctrl+C to exit the chat session.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		ollamaUrl := viper.GetString("OLLAMA_URL")
-		ollamaModel := viper.GetString("OLLAMA_MODEL")
-		fmt.Printf("Connecting to Ollama at %s using model %s\n", ollamaUrl, ollamaModel)
 		userInputChan := make(chan string)
-		defer close(userInputChan)
-		ollamaOutputChan := make(chan string)
-		defer close(ollamaOutputChan)
+		aiOutputChan := make(chan string)
 
-		p := tea.NewProgram(
-			chat.New(userInputChan, ollamaOutputChan),
-			tea.WithAltScreen(),
-		)
-
+		// Start goroutine to handle communication with Python server
 		go func() {
-			ollamaClient := llama.NewClient(ollamaUrl, ollamaModel)
-			for userInput := range userInputChan {
-				err := ollamaClient.Chat(userInput, 300, ollamaOutputChan)
-				if err != nil {
-					fmt.Println("Error chatting with Ollama:", err)
+			defer close(aiOutputChan)
+			client := ai.NewClient("http://localhost:8000")
+
+			for message := range userInputChan {
+				if err := client.Chat(message, aiOutputChan); err != nil {
+					fmt.Printf("Error communicating with AI server: %v\n", err)
 					continue
 				}
 			}
 		}()
+
+		p := tea.NewProgram(
+			chat.New(userInputChan, aiOutputChan),
+			tea.WithAltScreen(),
+		)
 
 		if _, err := p.Run(); err != nil {
 			fmt.Println("Error running program:", err)
