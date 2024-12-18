@@ -122,8 +122,8 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		if !model.ready {
-            headerHeight := 2
-            textInputHeight := 8
+            headerHeight := 1
+            textInputHeight := 6
             viewportHeight := msg.Height - headerHeight - textInputHeight
             model.viewport = viewport.New(msg.Width, viewportHeight)
 			model.viewport.HighPerformanceRendering = true
@@ -133,9 +133,8 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         model.width = msg.Width
         model.height = msg.Height
         // Calculate viewport height properly
-        viewportHeight := model.height - 10
-        model.viewport.Width = model.width
-        model.viewport.Height = viewportHeight
+        model.viewport.Width = model.width - 4
+        model.viewport.Height = model.height - 10
         model.textarea.SetWidth(model.width - 4)
         model.textarea.SetHeight(4)
         //model.styles.InputStyle = model.styles.InputStyle.Width(model.width - 2)
