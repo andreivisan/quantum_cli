@@ -42,7 +42,7 @@ This CLI tool allows you to:
 				if menuModel.Quitting() {
 					os.Exit(0)
 				}
-				if menuModel.Choice() == "chat" {
+				if menuModel.Choice() == "AI chat" {
 					chatCmd.Run(cmd, args)
 				}
 			}
