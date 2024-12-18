@@ -81,7 +81,6 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 
 	viewport := viewport.New(0, 0)
 	viewport.SetContent(`Type a message and press Enter to send.`)
-	viewport.MouseWheelEnabled = true
 	viewport.YPosition = 0
 
 	styles := DefaultStyles()
@@ -121,25 +120,25 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	)
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		headerHeight := 1
+		inputTextHeight := 6 // textarea height + margins
+		viewportHeight := msg.Height - headerHeight - inputTextHeight - 3
 		if !model.ready {
-			headerHeight := 1
-			textInputHeight := 6
-			viewportHeight := msg.Height - headerHeight - textInputHeight
 			model.viewport = viewport.New(msg.Width, viewportHeight)
 			model.viewport.HighPerformanceRendering = true
+			model.viewport.MouseWheelEnabled = true
 			model.viewport.SetContent(`Type a message and press Enter to send.`)
 			model.ready = true
 		}
 		model.width = msg.Width
 		model.height = msg.Height
 		model.viewport.Width = model.width - 4
-		model.viewport.Height = model.height - 10
+		model.viewport.Height = viewportHeight
 		model.textarea.SetWidth(model.width - 2)
 		model.textarea.SetHeight(4)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "ctrl+c":
-			// Quit.
 			fmt.Println(model.textarea.Value())
 			return model, tea.Quit
 		case "enter":
@@ -153,7 +152,6 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Content: userInput,
 			}
 			model.messages = append(model.messages, newMsg)
-			//model.viewport.SetContent(strings.Join(model.messages, "\n"))
 			model.rebuildViewport()
 			model.textarea.Reset()
 			model.viewport.GotoBottom()
@@ -212,5 +210,6 @@ func (chatModel *model) rebuildViewport() {
 	for _, msg := range chatModel.messages {
 		strBuilder.WriteString(chatModel.formatMessage(msg))
 	}
-	chatModel.viewport.SetContent(strBuilder.String())
+	chatModel.viewport.SetContent(strBuilder.String() + "\n")
+	chatModel.viewport.GotoBottom()
 }
