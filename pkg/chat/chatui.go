@@ -1,4 +1,4 @@
-package chat 
+package chat
 
 import (
 	"fmt"
@@ -16,15 +16,15 @@ type OutputMsg string
 type OutputDoneMsg struct{}
 
 type Message struct {
-    Role    string
-    Content string
+	Role    string
+	Content string
 }
 
 type Styles struct {
 	BorderColor lipgloss.Color
 	InputStyle  lipgloss.Style
 	PromptStyle lipgloss.Style
-    ChatStyle   lipgloss.Style
+	ChatStyle   lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
@@ -33,21 +33,21 @@ func DefaultStyles() *Styles {
 	styles.InputStyle = lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("36")).
-        MarginTop(0).
-        Height(6)
+		MarginTop(0).
+		Height(6)
 	styles.PromptStyle = lipgloss.NewStyle().
-        PaddingLeft(1).
-        PaddingRight(1).
-        PaddingTop(0).
-        PaddingBottom(0).
+		PaddingLeft(1).
+		PaddingRight(1).
+		PaddingTop(0).
+		PaddingBottom(0).
 		Foreground(lipgloss.Color("99"))
-    styles.ChatStyle = lipgloss.NewStyle().
-         Height(2).
-         PaddingLeft(2).
-         PaddingTop(0).
-         PaddingBottom(0).
-         MarginTop(0).
-         MarginBottom(1)
+	styles.ChatStyle = lipgloss.NewStyle().
+		Height(2).
+		PaddingLeft(2).
+		PaddingTop(0).
+		PaddingBottom(0).
+		MarginTop(0).
+		MarginBottom(1)
 	return styles
 }
 
@@ -122,22 +122,20 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		if !model.ready {
-            headerHeight := 1
-            textInputHeight := 6
-            viewportHeight := msg.Height - headerHeight - textInputHeight
-            model.viewport = viewport.New(msg.Width, viewportHeight)
+			headerHeight := 1
+			textInputHeight := 6
+			viewportHeight := msg.Height - headerHeight - textInputHeight
+			model.viewport = viewport.New(msg.Width, viewportHeight)
 			model.viewport.HighPerformanceRendering = true
 			model.viewport.SetContent(`Type a message and press Enter to send.`)
 			model.ready = true
 		}
-        model.width = msg.Width
-        model.height = msg.Height
-        // Calculate viewport height properly
-        model.viewport.Width = model.width - 4
-        model.viewport.Height = model.height - 10
-        model.textarea.SetWidth(model.width - 4)
-        model.textarea.SetHeight(4)
-        //model.styles.InputStyle = model.styles.InputStyle.Width(model.width - 2)
+		model.width = msg.Width
+		model.height = msg.Height
+		model.viewport.Width = model.width - 4
+		model.viewport.Height = model.height - 10
+		model.textarea.SetWidth(model.width - 2)
+		model.textarea.SetHeight(4)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "ctrl+c":
@@ -150,14 +148,14 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return model, nil
 			}
 			model.userInputChan <- userInput
-            newMsg := Message{
-                Role:    "You",
-                Content: userInput,
-            }
+			newMsg := Message{
+				Role:    "You",
+				Content: userInput,
+			}
 			model.messages = append(model.messages, newMsg)
 			//model.viewport.SetContent(strings.Join(model.messages, "\n"))
 			model.rebuildViewport()
-            model.textarea.Reset()
+			model.textarea.Reset()
 			model.viewport.GotoBottom()
 		default:
 			model.textarea, textareaCmd = model.textarea.Update(msg)
@@ -165,35 +163,23 @@ func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case error:
 		model.err = msg
 	case cursor.BlinkMsg:
-		// Forward cursor blink messages to the textarea as well.
 		model.textarea, textareaCmd = model.textarea.Update(msg)
 	case OutputMsg:
 		chunk := string(msg)
-		//if len(model.messages) == 0 {
-		//	model.messages = append(model.messages, model.styles.PromptStyle.Render("Llama: ")+chunk)
-		//} else {
-		//	model.messages[len(model.messages)-1] += "" + chunk
-		//}
-		//model.viewport.SetContent(strings.Join(model.messages, "\n"))
 		if len(model.messages) == 0 || model.messages[len(model.messages)-1].Role != "AI" {
-            newMsg := Message{
-                Role:    "AI",
-                Content: chunk,
-            }
-            model.messages = append(model.messages, newMsg)
-        } else {
-            model.messages[len(model.messages)-1].Content += chunk
-        }
-        model.rebuildViewport()
-        model.viewport.GotoBottom()
+			newMsg := Message{
+				Role:    "AI",
+				Content: chunk,
+			}
+			model.messages = append(model.messages, newMsg)
+		} else {
+			model.messages[len(model.messages)-1].Content += chunk
+		}
+		model.rebuildViewport()
 		// Re-issue the listen command to wait for the next message
 		return model, tea.Batch(textareaCmd, viewportCmd, listenForOllamaOutput(model.ollamaOutputChan))
 	case OutputDoneMsg:
-		// Llama finished responding, add a new line
-		//model.messages = append(model.messages, "")
-		//model.viewport.SetContent(strings.Join(model.messages, "\n"))
 		model.viewport.GotoBottom()
-		// No need to re-listen here since response ended
 		return model, tea.Batch(textareaCmd, viewportCmd)
 	}
 	model.viewport, viewportCmd = model.viewport.Update(msg)
@@ -204,38 +190,27 @@ func (model *model) View() string {
 	if !model.ready {
 		return "\n Initializing..."
 	}
-
-	//return lipgloss.PlaceHorizontal(
-	//	model.width,
-	//	lipgloss.Center,
-	//	lipgloss.JoinVertical(
-	//		lipgloss.Left,
-	//		model.viewport.View(),
-	//		model.styles.InputStyle.Render(model.textarea.View()),
-	//	),
-	//)
-
-    return lipgloss.JoinVertical(
-        lipgloss.Left,
-        lipgloss.NewStyle().
-            BorderStyle(lipgloss.RoundedBorder()).
-            BorderForeground(model.styles.BorderColor).
-            Width(model.width - 2).
-            Render(model.viewport.View()),
-        model.styles.InputStyle.Render(model.textarea.View()),
-    )
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(model.styles.BorderColor).
+			Width(model.width-2).
+			Render(model.viewport.View()),
+		model.styles.InputStyle.Render(model.textarea.View()),
+	)
 }
 
 func (chatModel *model) formatMessage(msg Message) string {
-    return fmt.Sprintf("%s%s\n",
-        chatModel.styles.PromptStyle.Render(msg.Role+":"),
-        chatModel.styles.ChatStyle.Render(msg.Content))
+	return fmt.Sprintf("%s%s\n",
+		chatModel.styles.PromptStyle.Render(msg.Role+":"),
+		chatModel.styles.ChatStyle.Render(msg.Content))
 }
 
 func (chatModel *model) rebuildViewport() {
-    var strBuilder strings.Builder
-    for _, msg := range chatModel.messages {
-        strBuilder.WriteString(chatModel.formatMessage(msg))
-    }
-    chatModel.viewport.SetContent(strBuilder.String())
+	var strBuilder strings.Builder
+	for _, msg := range chatModel.messages {
+		strBuilder.WriteString(chatModel.formatMessage(msg))
+	}
+	chatModel.viewport.SetContent(strBuilder.String())
 }
