@@ -53,7 +53,7 @@ func DefaultStyles() *Styles {
 	return styles
 }
 
-type model struct {
+type Model struct {
 	viewport         viewport.Model
 	textarea         textarea.Model
 	userInputChan    chan<- string
@@ -67,9 +67,10 @@ type model struct {
 	width            int
 	height           int
 	renderer         *glamour.TermRenderer
+	quitting         bool
 }
 
-func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
+func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *Model {
 	textarea := textarea.New()
 	textarea.Placeholder = "Send a message..."
 	textarea.Focus()
@@ -99,7 +100,7 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 
 	styles := DefaultStyles()
 
-	return &model{
+	return &Model{
 		textarea:         textarea,
 		viewport:         viewport,
 		userInputChan:    userInputChan,
@@ -113,14 +114,15 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 		width:            0,
 		height:           0,
 		renderer:         renderer,
+		quitting:         false,
 	}
 }
 
-func (model model) Init() tea.Cmd {
+func (model Model) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, listenForOllamaOutput(model.ollamaOutputChan))
 }
 
-func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (myModel *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -147,6 +149,7 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Ignore most key presses while waiting
 			switch msg.String() {
 			case "ctrl+c":
+				myModel.quitting = true
 				return myModel, tea.Quit
 			default:
 				return myModel, nil
@@ -154,6 +157,7 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case "esc", "ctrl+c":
+			myModel.quitting = true
 			fmt.Println(myModel.textarea.Value())
 			return myModel, tea.Quit
 		case "enter":
@@ -236,7 +240,7 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return myModel, tea.Batch(cmds...)
 }
 
-func (myModel *model) View() string {
+func (myModel *Model) View() string {
 	if !myModel.ready {
 		return "\n Initializing..."
 	}
@@ -272,7 +276,7 @@ func listenForOllamaOutput(outputChannel <-chan string) tea.Cmd {
 	}
 }
 
-func (chatModel *model) formatMessage(msg Message) string {
+func (chatModel *Model) formatMessage(msg Message) string {
 	// For AI messages, render with glamour
 	if msg.Role == "AI" {
 		renderedMessage, _ := chatModel.renderer.Render(msg.Content)
@@ -287,7 +291,7 @@ func (chatModel *model) formatMessage(msg Message) string {
 		chatModel.styles.ChatStyle.Render(msg.Content))
 }
 
-func (chatModel *model) rebuildViewport() {
+func (chatModel *Model) rebuildViewport() {
 	var strBuilder strings.Builder
 	for _, msg := range chatModel.messages {
 		strBuilder.WriteString(chatModel.formatMessage(msg))
@@ -297,4 +301,8 @@ func (chatModel *model) rebuildViewport() {
 	}
 	chatModel.viewport.SetContent(strBuilder.String())
 	chatModel.viewport.GotoBottom()
+}
+
+func (myModel *Model) Quitting() bool {
+	return myModel.quitting
 }

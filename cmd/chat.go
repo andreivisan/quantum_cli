@@ -50,9 +50,16 @@ Press Ctrl+C to exit the chat session.`,
 			tea.WithAltScreen(),
 		)
 
-		if _, err := p.Run(); err != nil {
+		model, err := p.Run()
+		if err != nil {
 			fmt.Println("Error running program:", err)
 			return
+		}
+
+		if chatModel, ok := model.(*chat.Model); ok {
+			if chatModel.Quitting() {
+				cleanup()
+			}
 		}
 	},
 }
