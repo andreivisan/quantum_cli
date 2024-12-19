@@ -95,6 +95,7 @@ func (menuModel Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, key.NewBinding(key.WithKeys("q", "ctrl+c", "esc"))):
+			menuModel.quitting = true
 			return menuModel, tea.Quit
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
 			selectedItem, ok := menuModel.list.SelectedItem().(item)
