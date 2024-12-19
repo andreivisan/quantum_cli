@@ -187,7 +187,13 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case OutputMsg:
 		chunk := string(msg)
 		if chunk == "Thinking...\n" {
-			return myModel, myModel.mySpinner.Tick
+			if !myModel.waiting {
+				myModel.waiting = true
+				myModel.textarea.Blur()
+				myModel.rebuildViewport()
+				return myModel, myModel.mySpinner.Tick
+			}
+			return myModel, nil
 		}
 		myModel.waiting = false
 		myModel.textarea.Focus()
@@ -207,6 +213,7 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		myModel.mySpinner, cmd = myModel.mySpinner.Update(msg)
 		if myModel.waiting {
+			myModel.rebuildViewport()
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -214,6 +221,7 @@ func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if myModel.waiting {
 		var cmd tea.Cmd
 		myModel.mySpinner, cmd = myModel.mySpinner.Update(msg)
+		myModel.rebuildViewport()
 		cmds = append(cmds, cmd)
 	} else {
 		var cmd tea.Cmd
@@ -233,12 +241,8 @@ func (myModel *model) View() string {
 		return "\n Initializing..."
 	}
 
-	var viewportContent string
 	var textareaView string
-
-	viewportContent = myModel.viewport.View()
 	if myModel.waiting {
-		viewportContent += fmt.Sprintf("\n%s Thinking...", myModel.mySpinner.View())
 		textareaView = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("240")).
@@ -253,7 +257,7 @@ func (myModel *model) View() string {
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(myModel.styles.BorderColor).
 			Width(myModel.width-2).
-			Render(viewportContent),
+			Render(myModel.viewport.View()),
 		textareaView,
 	)
 }
@@ -287,6 +291,9 @@ func (chatModel *model) rebuildViewport() {
 	var strBuilder strings.Builder
 	for _, msg := range chatModel.messages {
 		strBuilder.WriteString(chatModel.formatMessage(msg))
+	}
+	if chatModel.waiting {
+		strBuilder.WriteString(fmt.Sprintf("%s Thinking...", chatModel.mySpinner.View()))
 	}
 	chatModel.viewport.SetContent(strBuilder.String())
 	chatModel.viewport.GotoBottom()

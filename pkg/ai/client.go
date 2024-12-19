@@ -24,9 +24,6 @@ func NewClient(serverURL string) *Client {
 }
 
 func (cli *Client) Chat(message string, outputChan chan<- string) error {
-	outputChan <- "\n\n"
-	outputChan <- "Thinking:\n"
-
 	request := ChatRequest{
 		Message: message,
 	}
@@ -42,6 +39,9 @@ func (cli *Client) Chat(message string, outputChan chan<- string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Connection", "keep-alive")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
