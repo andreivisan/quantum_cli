@@ -90,7 +90,7 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 
 	mySpinner := spinner.New()
 	mySpinner.Spinner = spinner.Dot
-	mySpinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500"))
+	mySpinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("36"))
 
 	renderer, _ := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
