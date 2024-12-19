@@ -25,6 +25,7 @@ func NewClient(serverURL string) *Client {
 
 func (cli *Client) Chat(message string, outputChan chan<- string) error {
 	outputChan <- "\n\n"
+	outputChan <- "Thinking:\n"
 
 	request := ChatRequest{
 		Message: message,
@@ -78,7 +79,7 @@ func (cli *Client) Chat(message string, outputChan chan<- string) error {
 				} else if len(word) > 0 && word[0] >= 'A' && word[0] <= 'Z' {
 					// Any other section header
 					isThinking = false
-					outputChan <- "\n" + word + "\n"
+					outputChan <- word
 					word = ""
 					continue
 				}

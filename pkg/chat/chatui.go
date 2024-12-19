@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -59,9 +61,12 @@ type model struct {
 	messages         []Message
 	err              error
 	styles           *Styles
+	waiting          bool
+	mySpinner        spinner.Model
 	ready            bool
 	width            int
 	height           int
+	renderer         *glamour.TermRenderer
 }
 
 func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
@@ -83,6 +88,15 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 	viewport.SetContent(`Type a message and press Enter to send.`)
 	viewport.YPosition = 0
 
+	mySpinner := spinner.New()
+	mySpinner.Spinner = spinner.Dot
+	mySpinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFA500"))
+
+	renderer, _ := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(viewport.Width),
+	)
+
 	styles := DefaultStyles()
 
 	return &model{
@@ -93,14 +107,155 @@ func New(userInputChan chan<- string, ollamaOutputChan <-chan string) *model {
 		messages:         []Message{},
 		err:              nil,
 		styles:           styles,
+		waiting:          false,
+		mySpinner:        mySpinner,
 		ready:            true,
 		width:            0,
 		height:           0,
+		renderer:         renderer,
 	}
 }
 
 func (model model) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, listenForOllamaOutput(model.ollamaOutputChan))
+}
+
+func (myModel *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		headerHeight := 1
+		inputTextHeight := 6 // textarea height + margins
+		viewportHeight := msg.Height - headerHeight - inputTextHeight - 3
+		if !myModel.ready {
+			myModel.viewport = viewport.New(msg.Width, viewportHeight)
+			myModel.viewport.HighPerformanceRendering = true
+			myModel.viewport.MouseWheelEnabled = true
+			myModel.viewport.SetContent(`Type a message and press Enter to send.`)
+			myModel.ready = true
+		}
+		myModel.width = msg.Width
+		myModel.height = msg.Height
+		myModel.viewport.Width = myModel.width - 4
+		myModel.viewport.Height = viewportHeight
+		myModel.textarea.SetWidth(myModel.width - 2)
+		myModel.textarea.SetHeight(4)
+
+	case tea.KeyMsg:
+		if myModel.waiting {
+			// Ignore most key presses while waiting
+			switch msg.String() {
+			case "ctrl+c":
+				return myModel, tea.Quit
+			default:
+				return myModel, nil
+			}
+		}
+		switch msg.String() {
+		case "esc", "ctrl+c":
+			fmt.Println(myModel.textarea.Value())
+			return myModel, tea.Quit
+		case "enter":
+			userInput := myModel.textarea.Value()
+			if userInput == "" {
+				return myModel, nil
+			}
+			myModel.userInputChan <- userInput
+			newMsg := Message{
+				Role:    "You",
+				Content: userInput,
+			}
+			myModel.messages = append(myModel.messages, newMsg)
+			myModel.rebuildViewport()
+			myModel.textarea.Reset()
+			myModel.viewport.GotoBottom()
+			myModel.waiting = true
+			myModel.textarea.Blur()
+			cmds = append(cmds, myModel.mySpinner.Tick, listenForOllamaOutput(myModel.ollamaOutputChan))
+			return myModel, tea.Batch(cmds...)
+		}
+
+	case error:
+		myModel.err = msg
+
+	case cursor.BlinkMsg:
+		var cmd tea.Cmd
+		myModel.textarea, cmd = myModel.textarea.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case OutputMsg:
+		chunk := string(msg)
+		if chunk == "Thinking...\n" {
+			return myModel, myModel.mySpinner.Tick
+		}
+		myModel.waiting = false
+		myModel.textarea.Focus()
+		if len(myModel.messages) == 0 || myModel.messages[len(myModel.messages)-1].Role != "AI" {
+			newMsg := Message{
+				Role:    "AI",
+				Content: chunk,
+			}
+			myModel.messages = append(myModel.messages, newMsg)
+		} else {
+			myModel.messages[len(myModel.messages)-1].Content += chunk
+		}
+		myModel.rebuildViewport()
+		return myModel, listenForOllamaOutput(myModel.ollamaOutputChan)
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		myModel.mySpinner, cmd = myModel.mySpinner.Update(msg)
+		if myModel.waiting {
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	if myModel.waiting {
+		var cmd tea.Cmd
+		myModel.mySpinner, cmd = myModel.mySpinner.Update(msg)
+		cmds = append(cmds, cmd)
+	} else {
+		var cmd tea.Cmd
+		myModel.textarea, cmd = myModel.textarea.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	var cmd tea.Cmd
+	myModel.viewport, cmd = myModel.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return myModel, tea.Batch(cmds...)
+}
+
+func (myModel *model) View() string {
+	if !myModel.ready {
+		return "\n Initializing..."
+	}
+
+	var viewportContent string
+	var textareaView string
+
+	viewportContent = myModel.viewport.View()
+	if myModel.waiting {
+		viewportContent += fmt.Sprintf("\n%s Thinking...", myModel.mySpinner.View())
+		textareaView = lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Render(myModel.textarea.View())
+	} else {
+		textareaView = myModel.styles.InputStyle.Render(myModel.textarea.View())
+	}
+
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(myModel.styles.BorderColor).
+			Width(myModel.width-2).
+			Render(viewportContent),
+		textareaView,
+	)
 }
 
 func listenForOllamaOutput(outputChannel <-chan string) tea.Cmd {
@@ -113,93 +268,16 @@ func listenForOllamaOutput(outputChannel <-chan string) tea.Cmd {
 	}
 }
 
-func (model *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var (
-		textareaCmd tea.Cmd
-		viewportCmd tea.Cmd
-	)
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		headerHeight := 1
-		inputTextHeight := 6 // textarea height + margins
-		viewportHeight := msg.Height - headerHeight - inputTextHeight - 3
-		if !model.ready {
-			model.viewport = viewport.New(msg.Width, viewportHeight)
-			model.viewport.HighPerformanceRendering = true
-			model.viewport.MouseWheelEnabled = true
-			model.viewport.SetContent(`Type a message and press Enter to send.`)
-			model.ready = true
-		}
-		model.width = msg.Width
-		model.height = msg.Height
-		model.viewport.Width = model.width - 4
-		model.viewport.Height = viewportHeight
-		model.textarea.SetWidth(model.width - 2)
-		model.textarea.SetHeight(4)
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc", "ctrl+c":
-			fmt.Println(model.textarea.Value())
-			return model, tea.Quit
-		case "enter":
-			userInput := model.textarea.Value()
-			if userInput == "" {
-				return model, nil
-			}
-			model.userInputChan <- userInput
-			newMsg := Message{
-				Role:    "You",
-				Content: userInput,
-			}
-			model.messages = append(model.messages, newMsg)
-			model.rebuildViewport()
-			model.textarea.Reset()
-			model.viewport.GotoBottom()
-		default:
-			model.textarea, textareaCmd = model.textarea.Update(msg)
-		}
-	case error:
-		model.err = msg
-	case cursor.BlinkMsg:
-		model.textarea, textareaCmd = model.textarea.Update(msg)
-	case OutputMsg:
-		chunk := string(msg)
-		if len(model.messages) == 0 || model.messages[len(model.messages)-1].Role != "AI" {
-			newMsg := Message{
-				Role:    "AI",
-				Content: chunk,
-			}
-			model.messages = append(model.messages, newMsg)
-		} else {
-			model.messages[len(model.messages)-1].Content += chunk
-		}
-		model.rebuildViewport()
-		// Re-issue the listen command to wait for the next message
-		return model, tea.Batch(textareaCmd, viewportCmd, listenForOllamaOutput(model.ollamaOutputChan))
-	case OutputDoneMsg:
-		model.viewport.GotoBottom()
-		return model, tea.Batch(textareaCmd, viewportCmd)
-	}
-	model.viewport, viewportCmd = model.viewport.Update(msg)
-	return model, tea.Batch(textareaCmd, viewportCmd)
-}
-
-func (model *model) View() string {
-	if !model.ready {
-		return "\n Initializing..."
-	}
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		lipgloss.NewStyle().
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(model.styles.BorderColor).
-			Width(model.width-2).
-			Render(model.viewport.View()),
-		model.styles.InputStyle.Render(model.textarea.View()),
-	)
-}
-
 func (chatModel *model) formatMessage(msg Message) string {
+	// For AI messages, render with glamour
+	if msg.Role == "AI" {
+		renderedMessage, _ := chatModel.renderer.Render(msg.Content)
+		return fmt.Sprintf("%s%s\n",
+			chatModel.styles.PromptStyle.Render(msg.Role+":"),
+			chatModel.styles.ChatStyle.Render(renderedMessage))
+	}
+
+	// For user messages, keep the original formatting
 	return fmt.Sprintf("%s%s\n",
 		chatModel.styles.PromptStyle.Render(msg.Role+":"),
 		chatModel.styles.ChatStyle.Render(msg.Content))
@@ -210,6 +288,6 @@ func (chatModel *model) rebuildViewport() {
 	for _, msg := range chatModel.messages {
 		strBuilder.WriteString(chatModel.formatMessage(msg))
 	}
-	chatModel.viewport.SetContent(strBuilder.String() + "\n")
+	chatModel.viewport.SetContent(strBuilder.String())
 	chatModel.viewport.GotoBottom()
 }
