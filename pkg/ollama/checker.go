@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var lookPath = exec.LookPath
+
 type Checker struct {
 	OllamaURL         string
 	ServerStartedByUs bool
@@ -21,7 +23,7 @@ func NewChecker(ollamaURL string) *Checker {
 }
 
 func (myChecker *Checker) CheckInstallation() bool {
-	_, err := exec.LookPath("ollama")
+	_, err := lookPath("ollama")
 	return err == nil
 }
 
