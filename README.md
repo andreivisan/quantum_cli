@@ -13,6 +13,22 @@
 
 </div>
 
+## Project Vision & Goals
+
+Quantum CLI is a versatile command-line interface tool that aims to be a developer's swiss army knife, combining both AI and traditional development tools (in the future). At its core, it simplifies the use of Chain of Thought AI models through Ollama and LangChain, making them available offline and directly in your terminal. Our vision is to create a comprehensive toolkit that enhances developer productivity by providing easy access to AI capabilities alongside essential development features. The tool prioritizes offline availability, speed, and ease of use, making it a reliable companion for both AI-assisted tasks and traditional development workflows.
+
+![Quantum CLI](./images/demo.gif)
+
+## Key Features
+
+The tool is using QwQ AI model, which is a Chain of Thought AI model. But in order to make it less verbose, we are using a custom prompt to make it more concise.
+
+- **AI-Powered Development**: Utilize Chain of Thought AI models through Ollama and LangChain to get instant AI-assisted insights and solutions.
+- **Offline Access**: Enjoy the benefits of offline AI capabilities without relying on cloud services.
+- **Speed and Efficiency**: Experience fast and efficient AI-powered responses directly in your terminal.
+- **Beautiful and Easy to Use**: Beautiful response formatting using Markdown rendering for AI responses.
+- **Ollama Installation Management**: The CLI tool will guide you through the installation if you don't have it.
+
 ## Prerequisites
 
 - Go 1.21 or later
