@@ -92,6 +92,15 @@ If you want to run it from the current directory, you can use:
 ./quantum_cli
 ```
 
+## Philosophy on Quality & Design
+
+We believe that developer tools should not only be functional but also joy to use. Our commitment to quality is reflected in:
+
+- **Clean Architecture**: Following SOLID principles and clean architecture patterns to ensure maintainable, testable code.
+- **Rigorous Testing**: Comprehensive test coverage to catch issues early and maintain reliability.
+- **User Experience**: Thoughtful CLI interface design with clear feedback, helpful error messages, and intuitive commands.
+- **Performance**: Optimized for speed and efficiency, respecting system resources while delivering quick results.
+
 ## Contributing
 
 Contributions are welcome! Please check the [CONTRIBUTING](CONTRIBUTING.md) file for details.
