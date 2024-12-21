@@ -75,3 +75,11 @@ If you want to run it from the current directory, you can use:
 ```bash
 ./quantum_cli
 ```
+
+## Contributing
+
+Contributions are welcome! Please check the [CONTRIBUTING](CONTRIBUTING.md) file for details.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
