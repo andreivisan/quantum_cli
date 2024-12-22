@@ -33,6 +33,7 @@ The tool is using QwQ AI model, which is a Chain of Thought AI model. But in ord
 
 - Go 1.21 or later
 - [Ollama](The CLI tool will guide you through the installation if you don't have it)
+- QwQ AI model ```ollama pull qwq``` or ```ollama run qwq```
 - Python 3.10 or later
 
 ### Get the Python server
