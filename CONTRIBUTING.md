@@ -51,6 +51,52 @@ Follow the Pull Request template.
 - Must include documentation updates if relevant
 - Must be signed using the SSH key of the contributor
 
+## Commit signing
+
+### Why Sign Commits?
+
+Signing commits ensures their authenticity and confirms that they were made by you.
+
+How to Sign Commits Using SSH:
+
+1.	Configure Git to sign commits using SSH:
+
+```
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id_ed25519
+git config --global commit.gpgSign true
+```
+
+2. When committing
+
+```
+git commit -S -m "Your commit message"
+```
+
+3.	Ensure your SSH public key is added to GitHub.
+
+## Issue Reporting
+
+### Bug Reports:
+
+1. Use the Bug Report Template when submitting a bug.
+	
+2. Provide:
+	
+- Steps to reproduce.
+- Expected and actual behavior.
+- Environment details.
+
+### Feature Requests:
+
+1. Use the Feature Request Template.
+
+2. Include:
+
+- Rationale for the feature.
+- Proposed solution.
+- Impact on user experience and maintainability.
+
 ## Quality Assurance
 
 ### Testing Requirements
