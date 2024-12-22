@@ -105,6 +105,28 @@ We believe that developer tools should not only be functional but also joy to us
 - **User Experience**: Thoughtful CLI interface design with clear feedback, helpful error messages, and intuitive commands.
 - **Performance**: Optimized for speed and efficiency, respecting system resources while delivering quick results.
 
+## Furture plans
+
+### AI Features
+
+- [ ] Using Vector DB to store the context of the conversation and use it to generate more accurate responses.
+- [ ] Create a history of the conversations and folders to be able to use them later.
+- [ ] Postibility to upload files.
+- [ ] Posibility to export the conversation to a markdown file.
+- [ ] Create AI agents to help with the development process.
+
+... and more.
+
+### Development Features
+
+- [ ] JSON/YAML/XML prettifier.
+- [ ] JWT decoder and encoder (with claims inspection).
+- [ ] Base64, Hex, URL encoding/decoding.
+- [ ] Hashing (MD5, SHA256, etc.) and HMAC generation.
+
+... and more.
+
+
 ## Contributing
 
 Contributions are welcome! Please check the [CONTRIBUTING](CONTRIBUTING.md) file for details.
