@@ -114,4 +114,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support the Project
 
-If this project helps you speed up your development, you can buy me a coffee to fuel the creation of more features. Link above.
+If this project helps you speed up your development, you can buy me a coffee to fuel the creation of more features. Please check link above.
