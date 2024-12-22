@@ -80,22 +80,18 @@ git commit -S -m "Your commit message"
 ### Bug Reports:
 
 1. Use the Bug Report Template when submitting a bug.
-	
-2. Provide:
-	
-- Steps to reproduce.
-- Expected and actual behavior.
-- Environment details.
+2. Provide:	
+    - Steps to reproduce.
+    - Expected and actual behavior.
+    - Environment details.
 
 ### Feature Requests:
 
 1. Use the Feature Request Template.
-
 2. Include:
-
-- Rationale for the feature.
-- Proposed solution.
-- Impact on user experience and maintainability.
+    - Rationale for the feature.
+    - Proposed solution.
+    - Impact on user experience and maintainability.
 
 ## Quality Assurance
 
